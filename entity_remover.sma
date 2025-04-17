@@ -8,6 +8,8 @@
 #define VERSION "2.0"
 #define AUTHOR "ftl~"
 
+#define DEBUG 0
+
 // Path to save the configuration files
 new const CONFIG_FOLDER[] = "addons/amxmodx/configs/entity_remover";
 new const IGNORE_CFG[] = "addons/amxmodx/configs/ignored_entities.cfg";
@@ -396,33 +398,41 @@ public EntityOptionsHandler(id, menu, item) {
     menu_item_getinfo(menu, item, dummy, info, sizeof(info) - 1, _, _, _);
     new type_index = str_to_num(info);
 
-    if (item >= 0 && item < g_map_entity_type_count) {
-        new ent_info[EntityInfo];
-        ArrayGetArray(g_map_entity_types, type_index, ent_info);
-        
-        if (item == 0) { // Toggle Remove All
-            g_remove_map_entities[type_index] = !g_remove_map_entities[type_index];
-            ApplyMapEntityToggle(type_index, g_remove_map_entities[type_index]);
-            new status[32];
-            formatex(status, charsmax(status), "%L", id, g_remove_map_entities[type_index] ? "MSG_GLOBAL_REMOVED" : "MSG_GLOBAL_RESTORED");
-            CC_SendMessage(id, "%L", id, "GLOBAL_ENTITY_TOGGLED", ent_info[ei_classname], status);
-            save_map_config(); // Saves directly to the .txt
-            OpenEntityOptionsMenu(id, type_index);
-        } else if (item >= 1) { 
-            new ent_array_index = item - 1;
-            if (ent_array_index >= 0 && ent_array_index < ent_info[ei_count]) {
-                new ent_id = ArrayGetCell(ent_info[ei_indices], ent_array_index);
-                if (pev_valid(ent_id)) {
-                    TeleportPlayerToEnt(id, ent_id);
-                    CreateGuideLine(id, ent_id);
-                    OpenAimMenu(id);
-                    //CC_SendMessage(id, "Follow the plasma line to the entity.");
-                    CC_SendMessage(id, "%L", id, "FOLLOW_PLASMA");
-                } else {
-                    //CC_SendMessage(id, "Entity no longer valid.");
-                    CC_SendMessage(id, "%L", id, "ENTITY_INVALID");
-                    OpenEntityOptionsMenu(id, type_index);
-                }
+    if (type_index >= g_map_entity_type_count) 
+    {
+        menu_destroy(menu);
+        return PLUGIN_HANDLED;
+    }
+
+    new ent_info[EntityInfo];
+    ArrayGetArray(g_map_entity_types, type_index, ent_info);
+    
+    if (item == 0) { // Toggle Remove All
+        g_remove_map_entities[type_index] = !g_remove_map_entities[type_index];
+        ApplyMapEntityToggle(type_index, g_remove_map_entities[type_index]);
+        new status[32];
+        formatex(status, charsmax(status), "%L", id, g_remove_map_entities[type_index] ? "MSG_GLOBAL_REMOVED" : "MSG_GLOBAL_RESTORED");
+        CC_SendMessage(id, "%L", id, "GLOBAL_ENTITY_TOGGLED", ent_info[ei_classname], status);
+        save_map_config(); // Saves directly to the .txt
+        OpenEntityOptionsMenu(id, type_index);
+    } else if (item >= 1) { 
+        new ent_array_index = item - 1;
+        if (ent_array_index < ent_info[ei_count]) {
+            new ent_id = ArrayGetCell(ent_info[ei_indices], ent_array_index);
+#if DEBUG
+client_print(id, print_chat, "ID: %d", ent_id);
+client_print(id, print_chat, "CLASS: %s", ent_info[ei_classname]);
+#endif
+            if (pev_valid(ent_id)) {
+                TeleportPlayerToEnt(id, ent_id);
+                CreateGuideLine(id, ent_id);
+                OpenAimMenu(id);
+                //CC_SendMessage(id, "Follow the plasma line to the entity.");
+                CC_SendMessage(id, "%L", id, "FOLLOW_PLASMA");
+            } else {
+                //CC_SendMessage(id, "Entity no longer valid.");
+                CC_SendMessage(id, "%L", id, "ENTITY_INVALID");
+                OpenEntityOptionsMenu(id, type_index);
             }
         }
     }
@@ -596,6 +606,12 @@ public TeleportPlayerToEnt(id, ent_id)
     pev(id, pev_origin, player_origin);
     get_brush_entity_origin(ent_id,  ent_origin);
 
+#if DEBUG
+client_print(id, print_chat, "BRUSH ORIGIN: [%f %f %f]", ent_origin[0], ent_origin[1], ent_origin[2]);
+pev(ent_id, pev_origin, ent_origin);
+client_print(id, print_chat, "ORIGIN: [%f %f %f]", ent_origin[0], ent_origin[1], ent_origin[2]);
+#endif
+    
     xs_vec_sub(ent_origin, player_origin, vec_dir);
     xs_vec_normalize(vec_dir, vec_dir);
 
